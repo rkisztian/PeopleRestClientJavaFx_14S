@@ -9,6 +9,8 @@ import javafx.scene.control.cell.PropertyValueFactory;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 public class ListPeopleController {
 
@@ -37,14 +39,7 @@ public class ListPeopleController {
         ageCol.setCellValueFactory(new PropertyValueFactory<>("age"));
         Platform.runLater(() -> {
             try {
-                Response response = RequestHandler.get(App.BASE_URL);
-                String content = response.getContent();
-                Gson converter = new Gson();
-                Person[] people = converter.fromJson(content, Person[].class);
-                //Collections.addAll(peopleTable.getItems(), people);
-                for (Person person: people) {
-                    peopleTable.getItems().add(person);
-                }
+                loadPeopleFromServer();
             } catch (IOException e) {
                 Alert alert = new Alert(Alert.AlertType.ERROR);
                 alert.setTitle("Hiba");
@@ -54,6 +49,17 @@ public class ListPeopleController {
                 Platform.exit();
             }
         });
+    }
+
+    private void loadPeopleFromServer() throws IOException {
+        Response response = RequestHandler.get(App.BASE_URL);
+        String content = response.getContent();
+        Gson converter = new Gson();
+        Person[] people = converter.fromJson(content, Person[].class);
+        peopleTable.getItems().clear();
+        for (Person person: people) {
+            peopleTable.getItems().add(person);
+        }
     }
 
     @FXML
@@ -66,5 +72,31 @@ public class ListPeopleController {
 
     @FXML
     public void deleteClick(ActionEvent actionEvent) {
+        Person selected = peopleTable.getSelectionModel().getSelectedItem();
+        if (selected==null){
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Figyelmeztetés!");
+            alert.setHeaderText("Törléshez előbb válasszon ki egy elemet");
+            alert.showAndWait();
+            return;
+        }
+        Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmation.setTitle("Biztos vagy te ebben? ");
+        confirmation.setHeaderText("Biztos törlöd az alábbi rekordot: "+ selected.getName());
+        Optional<ButtonType> optionalButtonType = confirmation.showAndWait();
+        if (optionalButtonType.isPresent() &&
+                optionalButtonType.get().equals(ButtonType.OK)
+        ){
+            String url = App.BASE_URL + "/" + selected.getId();
+            try {
+                RequestHandler.delete(url);
+                loadPeopleFromServer();
+            } catch (IOException e) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Hiba");
+                alert.setHeaderText("Nem sikerült kapcsolodni a serverhez");
+                alert.showAndWait();
+            }
+        }
     }
 }
